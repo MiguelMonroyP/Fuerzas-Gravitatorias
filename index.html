@@ -2,55 +2,52 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simulador de Mecánica Orbital y Leyes de Kepler</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Laboratorio Interactivo: Conservación de Energía</title>
     <style>
         :root {
-            --bg-color: #0b0f19;
-            --panel-bg: #1a2235;
-            --text-main: #e2e8f0;
-            --text-muted: #94a3b8;
-            --accent: #38bdf8;
-            --accent-hover: #0ea5e9;
-            --earth-color: #0284c7;
-            --satellite-color: #facc15;
+            --bg-color: #0f172a;
+            --panel-bg: #1e293b;
+            --text-main: #f8fafc;
+            --accent: #10b981;
+            --accent-hover: #059669;
+            --danger: #ef4444;
+            --warning: #eab308;
         }
 
         body {
             margin: 0;
-            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: var(--bg-color);
             color: var(--text-main);
             display: flex;
             height: 100vh;
             overflow: hidden;
+            flex-direction: row;
         }
 
-        #simulation-container {
+        #canvas-container {
             flex: 2;
             position: relative;
+            background: linear-gradient(to bottom, #020617 0%, #0f172a 100%);
             display: flex;
             justify-content: center;
             align-items: center;
-            border-right: 1px solid #334155;
+            border-right: 2px solid #334155;
+            padding: 10px;
+            box-sizing: border-box;
         }
 
         canvas {
-            background-color: #000;
-            box-shadow: inset 0 0 50px rgba(0,0,0,0.8);
+            box-shadow: 0 0 30px rgba(0,0,0,0.8);
+            background-color: #0f172a;
+            cursor: grab;
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            touch-action: none; /* Previene el scroll nativo al tocar el canvas */
         }
-
-        #telemetry {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            background: rgba(15, 23, 42, 0.8);
-            padding: 15px;
-            border-radius: 8px;
-            border: 1px solid #334155;
-            font-family: 'Courier New', Courier, monospace;
-            font-size: 14px;
-        }
+        canvas:active { cursor: grabbing; }
 
         #sidebar {
             flex: 1;
@@ -60,275 +57,561 @@
             display: flex;
             flex-direction: column;
             gap: 20px;
+            box-sizing: border-box;
         }
 
-        h1, h2, h3 {
-            margin: 0 0 10px 0;
-            color: var(--accent);
-        }
-
-        h1 { font-size: 1.5rem; border-bottom: 2px solid #334155; padding-bottom: 10px;}
-        h2 { font-size: 1.2rem; }
+        h1, h2 { color: var(--accent); margin-top: 0; }
+        h1 { font-size: 1.5rem; border-bottom: 1px solid #334155; padding-bottom: 10px; }
+        h2 { font-size: 1.1rem; }
         
-        p {
-            line-height: 1.6;
-            margin: 0 0 15px 0;
-            font-size: 0.95rem;
-            color: var(--text-muted);
-        }
-
-        .control-group {
-            background: rgba(0,0,0,0.2);
-            padding: 15px;
+        .control-panel {
+            background: #0b1120;
+            padding: 20px;
             border-radius: 8px;
-            margin-bottom: 20px;
+            border: 1px solid #334155;
         }
 
-        label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: bold;
-        }
+        label { display: block; font-weight: bold; margin-bottom: 10px; }
+        input[type="range"] { width: 100%; margin-bottom: 15px; }
 
-        input[type="range"] {
-            width: 100%;
-            margin-bottom: 10px;
-        }
-
+        .btn-group { display: flex; gap: 10px; }
         .btn {
             background-color: var(--accent);
-            color: #000;
+            color: white;
             border: none;
-            padding: 10px 15px;
-            font-size: 1rem;
+            padding: 12px;
             font-weight: bold;
             border-radius: 5px;
             cursor: pointer;
+            flex: 1;
             transition: background 0.3s;
-            width: 100%;
-            margin-bottom: 10px;
         }
-
         .btn:hover { background-color: var(--accent-hover); }
+        .btn.pause { background-color: var(--warning); color: #000; }
+        .btn.pause:hover { background-color: #ca8a04; }
+        .btn.reset { background-color: #64748b; }
+        .btn.reset:hover { background-color: #475569; }
 
-        .concept-box {
-            background: rgba(56, 189, 248, 0.1);
-            border-left: 4px solid var(--accent);
+        .status-box {
             padding: 15px;
-            border-radius: 0 8px 8px 0;
+            border-radius: 8px;
+            background: rgba(255,255,255,0.05);
+            border-left: 5px solid var(--accent);
+            transition: all 0.3s ease;
         }
+        .status-box.danger { border-color: var(--danger); background: rgba(239, 68, 68, 0.1); }
+        .status-box.crashed { border-color: #991b1b; background: rgba(153, 27, 27, 0.2); }
+        .status-box h3 { margin: 0 0 10px 0; font-size: 1.1rem; }
+        
+        .math { font-family: 'Courier New', Courier, monospace; color: #93c5fd; }
+        .instruction { font-size: 0.85rem; color: #94a3b8; margin-top: 10px; font-style: italic; }
 
-        .references {
-            margin-top: auto;
-            font-size: 0.8rem;
-            border-top: 1px solid #334155;
-            padding-top: 15px;
+        /* Media Queries para Celulares y Tablets */
+        @media (max-width: 900px) {
+            body {
+                flex-direction: column;
+                overflow-y: auto;
+                height: auto;
+            }
+            #canvas-container {
+                border-right: none;
+                border-bottom: 2px solid #334155;
+                height: 50vh; /* Ocupa la mitad superior en móviles */
+                padding: 0;
+            }
+            #sidebar {
+                height: 50vh;
+            }
         }
     </style>
 </head>
 <body>
 
-    <div id="simulation-container">
-        <canvas id="spaceCanvas" width="800" height="800"></canvas>
-        <div id="telemetry">
-            <strong>Telemetría Orbital</strong><br>
-            Velocidad (v): <span id="tel-v">0.00</span> km/s<br>
-            Altitud (h): <span id="tel-h">0.00</span> km<br>
-            Estado: <span id="tel-status" style="color: #4ade80;">Órbita Estable</span>
-        </div>
+    <div id="canvas-container">
+        <canvas id="simCanvas" width="900" height="600"></canvas>
     </div>
 
     <div id="sidebar">
-        <h1>Dinámica Celeste Interactiva</h1>
-        
-        <div class="control-group">
-            <label for="v-slider">Velocidad Tangencial Inicial (Inyección Orbital)</label>
-            <input type="range" id="v-slider" min="4" max="12" step="0.1" value="7.5">
-            <span id="v-display">7.5 km/s</span>
+        <h1>Diseño de Rizo Circular</h1>
+        <p>Ajuste la altura inicial. Use el botón de pausa o arrastre el carrito (con el ratón o el dedo) para inspeccionar los niveles de energía.</p>
+
+        <div class="control-panel">
+            <label for="h-slider">Altura Inicial (h): <span id="h-display">2.5 R</span></label>
+            <input type="range" id="h-slider" min="1.1" max="4.0" step="0.1" value="2.5">
             
-            <button class="btn" id="btn-launch" style="margin-top: 15px;">Lanzar Satélite / Actualizar</button>
+            <div class="btn-group">
+                <button class="btn" id="btn-play">Soltar Carrito</button>
+                <button class="btn reset" id="btn-reset">Restablecer</button>
+            </div>
+            <p class="instruction">💡 Tip: Arrastre el carrito manualmente por la vía para evaluar su telemetría punto a punto.</p>
         </div>
 
-        <div class="concept-box">
-            <h2>El Cañón de Newton</h2>
-            <p>Si la velocidad tangencial inicial es insuficiente, el proyectil describe una parábola y colisiona con el cuerpo central. Si la velocidad alcanza el umbral de equilibrio (Fuerza Gravitacional = Fuerza Centrípeta), el objeto entra en estado de <strong>caída libre perpetua</strong>, logrando una órbita circular o elíptica.</p>
-        </div>
-
-        <div>
-            <h2>Leyes de Kepler Observables</h2>
-            <p><strong>1. Ley de las Órbitas:</strong> Al modificar la velocidad en el panel de control, note cómo la trayectoria deja de ser un círculo para convertirse en una elipse, donde el cuerpo central ocupa siempre uno de los focos.</p>
-            <p><strong>2. Ley de las Áreas (Conservación del Momento Angular):</strong> Observe atentamente la velocidad del satélite. Cuando se acerca al cuerpo central (periastro), su velocidad aumenta drásticamente. Al alejarse (apoastro), se frena. Esto garantiza que barra áreas iguales en tiempos iguales.</p>
-            <p><strong>Velocidad de Escape:</strong> Si incrementa la velocidad inicial más allá de cierto límite crítico, la órbita se abrirá formando una parábola. El objeto poseerá suficiente energía cinética para escapar del pozo gravitacional terrestre para siempre.</p>
-        </div>
-
-        <div class="references">
-            <strong>Referencias (Formato APA 7.ª ed.)</strong><br>
-            <p style="text-indent: -20px; padding-left: 20px; margin-top: 5px;">
-                Young, H. D., & Freedman, R. A. (2018). <em>Física universitaria con física moderna</em> (14.ª ed., Vol. 1). Pearson Educación.
-            </p>
+        <div class="status-box" id="status-panel">
+            <h3 id="status-title">Condición de Diseño Ideal</h3>
+            <p id="status-text">Con una altura de <span class="math">h = 2.5R</span>, el carrito transformará la Energía Potencial en suficiente Energía Cinética para que la gravedad actúe como fuerza centrípeta pura en el cénit.</p>
         </div>
     </div>
 
     <script>
-        const canvas = document.getElementById('spaceCanvas');
+        const canvas = document.getElementById('simCanvas');
         const ctx = canvas.getContext('2d');
         
-        // Elementos de UI
-        const vSlider = document.getElementById('v-slider');
-        const vDisplay = document.getElementById('v-display');
-        const btnLaunch = document.getElementById('btn-launch');
-        const telV = document.getElementById('tel-v');
-        const telH = document.getElementById('tel-h');
-        const telStatus = document.getElementById('tel-status');
+        const hSlider = document.getElementById('h-slider');
+        const hDisplay = document.getElementById('h-display');
+        const btnPlay = document.getElementById('btn-play');
+        const btnReset = document.getElementById('btn-reset');
+        const statusPanel = document.getElementById('status-panel');
+        const statusTitle = document.getElementById('status-title');
+        const statusText = document.getElementById('status-text');
 
-        // Constantes Físicas (Escaladas para la simulación visual)
-        const G = 1; 
-        const M_earth = 10000;
-        const R_earth = 40;
+        const g = 800; 
+        const R = 120; 
+        const baseY = 520; 
+        const dt = 0.016; 
+
+        let H_ratio = 2.5; 
+        let playing = false;
+        let isPaused = false;
+        let isDragging = false;
+        let trackPath = [];
+        let maxS = 0;
+        let mode = 'track'; 
+        let hasCrashed = false; 
         
-        // Estado de la Simulación
-        let sat = { x: 0, y: 0, vx: 0, vy: 0, radius: 4 };
-        let center = { x: 400, y: 400 };
-        let orbitPath = [];
-        let isSimulating = true;
-        let scale = 2; // px a km conceptuales
+        let cart = { x: 0, y: 0, S: 0, vx: 0, vy: 0, v: 0, radius: 12 }; // Radio ligeramente mayor para facilitar el toque
 
-        function initSimulation() {
-            // Posición inicial: en la cima del eje Y (como si se lanzara desde el polo)
-            const initialRadius = 150; 
-            sat.x = center.x;
-            sat.y = center.y - initialRadius;
-            
-            // Velocidad horizontal inicial
-            sat.vx = parseFloat(vSlider.value);
-            sat.vy = 0;
-            
-            orbitPath = [];
-            isSimulating = true;
-            telStatus.innerText = "Calculando Trayectoria...";
-            telStatus.style.color = "#38bdf8";
+        if (!CanvasRenderingContext2D.prototype.roundRect) {
+            CanvasRenderingContext2D.prototype.roundRect = function (x, y, w, h, r) {
+                if (w < 2 * r) r = w / 2;
+                if (h < 2 * r) r = h / 2;
+                this.moveTo(x + r, y);
+                this.arcTo(x + w, y, x + w, y + h, r);
+                this.arcTo(x + w, y + h, x, y + h, r);
+                this.arcTo(x, y + h, x, y, r);
+                this.arcTo(x, y, x + w, y, r);
+                return this;
+            };
         }
 
-        function updatePhysics() {
-            if (!isSimulating) return;
+        function buildTrack() {
+            trackPath = [];
+            let H_real = H_ratio * R;
+            let startX = 80;
+            let loopX = 420;
+            let rampLength = loopX - startX;
 
-            // Vectores de distancia
-            let dx = center.x - sat.x;
-            let dy = center.y - sat.y;
-            let distSq = dx*dx + dy*dy;
-            let dist = Math.sqrt(distSq);
-
-            // Colisión con la Tierra
-            if (dist < R_earth) {
-                isSimulating = false;
-                telStatus.innerText = "COLISIÓN DETECTADA (Caída suborbital)";
-                telStatus.style.color = "#ef4444"; // Red
-                return;
+            let rampSegments = 100;
+            for(let i=0; i<=rampSegments; i++) {
+                let u = i / rampSegments;
+                let x = startX + rampLength * u;
+                let y = baseY - H_real + H_real * Math.sin((Math.PI/2) * u);
+                trackPath.push({ x, y, isLoop: false, theta: 0 });
             }
 
-            // Límite de Escape (salió de la pantalla de forma irreversible)
-            if (dist > 1500) {
-                 telStatus.innerText = "VELOCIDAD DE ESCAPE ALCANZADA";
-                 telStatus.style.color = "#f97316"; // Orange
-            } else if (isSimulating && dist > R_earth) {
-                 telStatus.innerText = "Órbita Estable";
-                 telStatus.style.color = "#4ade80"; // Green
+            let loopSegments = 150;
+            for(let i=1; i<=loopSegments; i++) {
+                let theta = (i / loopSegments) * 2 * Math.PI;
+                let x = loopX + R * Math.sin(theta);
+                let y = baseY - R + R * Math.cos(theta);
+                trackPath.push({ x, y, isLoop: true, theta: theta });
             }
 
-            // Ley de Gravitación de Newton (F = G*M*m/r^2 -> a = F/m -> a = G*M/r^2)
-            let forceMagnitude = (G * M_earth) / distSq;
+            for(let i=1; i<=50; i++) {
+                trackPath.push({ x: loopX + i*10, y: baseY, isLoop: false, theta: 0 });
+            }
+
+            trackPath[0].S = 0;
+            for(let i=1; i<trackPath.length; i++) {
+                let dx = trackPath[i].x - trackPath[i-1].x;
+                let dy = trackPath[i].y - trackPath[i-1].y;
+                trackPath[i].S = trackPath[i-1].S + Math.sqrt(dx*dx + dy*dy);
+            }
+            maxS = trackPath[trackPath.length-1].S;
+        }
+
+        function getPosFromS(targetS) {
+            if (targetS <= 0) return trackPath[0];
+            if (targetS >= maxS) return trackPath[trackPath.length-1];
+            for(let i=0; i<trackPath.length-1; i++) {
+                if (targetS >= trackPath[i].S && targetS < trackPath[i+1].S) {
+                    let p1 = trackPath[i];
+                    let p2 = trackPath[i+1];
+                    let ratio = (targetS - p1.S) / (p2.S - p1.S);
+                    return {
+                        x: p1.x + (p2.x - p1.x) * ratio,
+                        y: p1.y + (p2.y - p1.y) * ratio,
+                        isLoop: p1.isLoop,
+                        theta: p1.theta + (p2.theta - p1.theta) * ratio
+                    };
+                }
+            }
+            return trackPath[trackPath.length-1];
+        }
+
+        function getClosestS(mx, my) {
+            let minDist = Infinity;
+            let bestS = 0;
+            for(let pt of trackPath) {
+                let dx = pt.x - mx;
+                let dy = pt.y - my;
+                let dist = dx*dx + dy*dy;
+                if(dist < minDist) {
+                    minDist = dist;
+                    bestS = pt.S;
+                }
+            }
+            return bestS;
+        }
+
+        function updateUI() {
+            hDisplay.innerText = H_ratio.toFixed(1) + " R";
             
-            // Componentes de aceleración
-            let ax = forceMagnitude * (dx / dist);
-            let ay = forceMagnitude * (dy / dist);
+            if (hasCrashed) {
+                statusPanel.className = "status-box crashed";
+                statusTitle.innerText = "💥 Colisión Inelástica";
+                statusText.innerHTML = `El carrito ha chocado contra el suelo. Toda su Energía Cinética se ha disipado en forma de calor y deformación. La velocidad es cero.`;
+            } else if (H_ratio >= 2.5) {
+                statusPanel.className = "status-box";
+                statusTitle.innerText = "¡Ingeniería Segura!";
+                statusText.innerHTML = `Con <span class="math">h = ${H_ratio}R</span>, la Energía Cinética remanente en la cima es suficiente para mantener el contacto con las vías.`;
+            } else {
+                statusPanel.className = "status-box danger";
+                statusTitle.innerText = "¡Peligro! Desprendimiento Inminente";
+                statusText.innerHTML = `Con <span class="math">h = ${H_ratio}R</span>, la Energía Cinética se agotará críticamente. Al llegar a <span class="math">N = 0</span>, abandonará la trayectoria.`;
+            }
 
-            // Integración de Euler semi-implícita
-            sat.vx += ax;
-            sat.vy += ay;
-            sat.x += sat.vx;
-            sat.y += sat.vy;
-
-            // Actualizar telemetría
-            let currentV = Math.sqrt(sat.vx*sat.vx + sat.vy*sat.vy);
-            let altitude = (dist - R_earth) * scale;
-            
-            telV.innerText = currentV.toFixed(2);
-            telH.innerText = altitude.toFixed(0);
-
-            // Guardar rastro para dibujar la elipse
-            if(orbitPath.length === 0 || distSqToLastPoint(sat.x, sat.y) > 4) {
-                orbitPath.push({x: sat.x, y: sat.y});
-                if(orbitPath.length > 500) orbitPath.shift(); // Evitar overflow de memoria
+            if (!playing) {
+                btnPlay.innerText = "Soltar Carrito";
+                btnPlay.className = "btn";
+            } else if (isPaused) {
+                btnPlay.innerText = "Reanudar";
+                btnPlay.className = "btn";
+            } else {
+                btnPlay.innerText = "Pausar";
+                btnPlay.className = "btn pause";
             }
         }
 
-        function distSqToLastPoint(x, y) {
-            let last = orbitPath[orbitPath.length-1];
-            return (last.x - x)*(last.x - x) + (last.y - y)*(last.y - y);
+        function resetSim() {
+            playing = false;
+            isPaused = false;
+            isDragging = false;
+            hasCrashed = false;
+            mode = 'track';
+            H_ratio = parseFloat(hSlider.value);
+            buildTrack();
+            cart.S = 0;
+            updateCartToS(0);
+            updateUI();
+            draw();
+        }
+
+        function updateCartToS(newS) {
+            cart.S = newS;
+            let pt = getPosFromS(cart.S);
+            cart.x = pt.x;
+            cart.y = pt.y;
+            
+            let H_real = H_ratio * R;
+            let y_cart = baseY - pt.y; 
+            let v2 = 2 * g * (H_real - y_cart);
+            cart.v = v2 > 0 ? Math.sqrt(v2) : 0;
+        }
+
+        function physicsStep() {
+            if (!playing || isPaused || isDragging || hasCrashed) return;
+
+            let H_real = H_ratio * R; 
+
+            if (mode === 'track') {
+                let pt = getPosFromS(cart.S);
+                let y_cart = baseY - pt.y; 
+                
+                let v2 = 2 * g * (H_real - y_cart);
+                if (v2 < 0) v2 = 0;
+                let current_v = Math.sqrt(v2);
+
+                if (cart.S < 1 && current_v < 1) current_v = 20; 
+
+                if (pt.isLoop) {
+                    let N = (v2 / R) + g * Math.cos(pt.theta);
+                    if (N <= 0 && pt.theta > Math.PI/2 && pt.theta < 1.5*Math.PI) {
+                        mode = 'fall';
+                        cart.vx = current_v * Math.cos(pt.theta);
+                        cart.vy = -current_v * Math.sin(pt.theta); 
+                        cart.v = current_v; 
+                    }
+                }
+
+                if (mode === 'track') {
+                    cart.S += current_v * dt;
+                    if (cart.S >= maxS) {
+                        cart.S = maxS;
+                        playing = false;
+                        updateUI();
+                    }
+                    
+                    let newPt = getPosFromS(cart.S);
+                    cart.x = newPt.x;
+                    cart.y = newPt.y;
+                    
+                    let new_y_cart = baseY - cart.y;
+                    let new_v2 = 2 * g * (H_real - new_y_cart);
+                    cart.v = new_v2 > 0 ? Math.sqrt(new_v2) : 0;
+                }
+            } else if (mode === 'fall') {
+                cart.vy += g * dt;
+                cart.x += cart.vx * dt;
+                cart.y += cart.vy * dt;
+                cart.v = Math.sqrt(cart.vx * cart.vx + cart.vy * cart.vy);
+
+                if (cart.y >= baseY) {
+                    cart.y = baseY;
+                    cart.vx = 0;
+                    cart.vy = 0;
+                    cart.v = 0; 
+                    playing = false;
+                    hasCrashed = true; 
+                    updateUI();
+                }
+            }
+        }
+
+        // --- SISTEMA UNIFICADO DE COORDENADAS MULTIPLATAFORMA (MOUSE + TOUCH) ---
+        function getEventPos(evt) {
+            let rect = canvas.getBoundingClientRect();
+            // Factores de escala por si el canvas fue redimensionado por CSS
+            let scaleX = canvas.width / rect.width;
+            let scaleY = canvas.height / rect.height;
+            
+            let clientX = evt.clientX;
+            let clientY = evt.clientY;
+
+            // Extraer coordenadas si es un evento táctil
+            if (evt.touches && evt.touches.length > 0) {
+                clientX = evt.touches[0].clientX;
+                clientY = evt.touches[0].clientY;
+            }
+
+            return {
+                x: (clientX - rect.left) * scaleX,
+                y: (clientY - rect.top) * scaleY
+            };
+        }
+
+        function handleStart(e) {
+            let pos = getEventPos(e);
+            let dx = pos.x - cart.x;
+            let dy = pos.y - cart.y;
+            // Aumentamos ligeramente el área de detección (Hitbox) para los dedos
+            if (dx*dx + dy*dy < 1600 || true) { 
+                isDragging = true;
+                hasCrashed = false; 
+                if(playing) isPaused = true; 
+                mode = 'track'; 
+                let closestS = getClosestS(pos.x, pos.y);
+                updateCartToS(closestS);
+                updateUI();
+                draw();
+            }
+        }
+
+        function handleMove(e) {
+            if (isDragging) {
+                e.preventDefault(); // Crítico: Evita que la pantalla haga scroll al arrastrar el carrito en móvil
+                let pos = getEventPos(e);
+                let closestS = getClosestS(pos.x, pos.y);
+                updateCartToS(closestS);
+                draw();
+            }
+        }
+
+        function handleEnd() {
+            isDragging = false;
+        }
+
+        // Listeners de Ratón
+        canvas.addEventListener('mousedown', handleStart);
+        canvas.addEventListener('mousemove', handleMove);
+        canvas.addEventListener('mouseup', handleEnd);
+        canvas.addEventListener('mouseleave', handleEnd);
+
+        // Listeners Táctiles
+        canvas.addEventListener('touchstart', handleStart, {passive: false});
+        canvas.addEventListener('touchmove', handleMove, {passive: false});
+        canvas.addEventListener('touchend', handleEnd);
+        canvas.addEventListener('touchcancel', handleEnd);
+        // -------------------------------------------------------------------------
+
+        function drawEnergyBars() {
+            let maxCapacity = 4.0 * R; 
+            let U = baseY - cart.y; 
+            if (U < 0) U = 0;
+            
+            let H_real = H_ratio * R;
+            let K = (cart.v * cart.v) / (2 * g);
+            
+            if (U >= H_real && mode === 'track' && !isDragging) {
+                K = 0; 
+                cart.v = 0;
+            }
+
+            let E = U + K;
+            let barMaxHeight = 180;
+            let barW = 45;
+            let gap = 25;
+            let startX = 640;
+            let startY = 260;
+
+            ctx.fillStyle = "rgba(15, 23, 42, 0.85)";
+            ctx.strokeStyle = "#334155";
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.roundRect(startX - 20, startY - barMaxHeight - 65, 250, barMaxHeight + 110, 8);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.fillStyle = "white";
+            ctx.font = "bold 14px sans-serif";
+            ctx.textAlign = "center";
+            ctx.fillText("TELEMETRÍA EN VIVO", startX + 105, startY - barMaxHeight - 40);
+
+            function drawBar(x, value, color, label) {
+                let h = (value / maxCapacity) * barMaxHeight;
+                if (h > barMaxHeight) h = barMaxHeight;
+                if (h < 0) h = 0;
+                
+                ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+                ctx.strokeStyle = "#475569";
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.roundRect(x, startY - barMaxHeight, barW, barMaxHeight, 5);
+                ctx.fill();
+                ctx.stroke();
+                
+                if (h > 0) {
+                    ctx.fillStyle = color;
+                    ctx.beginPath();
+                    ctx.roundRect(x, startY - h, barW, h, 5);
+                    ctx.fill();
+                    
+                    ctx.fillStyle = "rgba(255, 255, 255, 0.2)";
+                    ctx.beginPath();
+                    ctx.roundRect(x + 4, startY - h + 4, barW / 3, h - 8, 2);
+                    ctx.fill();
+                }
+
+                ctx.fillStyle = "#cbd5e1";
+                ctx.font = "bold 12px sans-serif";
+                ctx.textAlign = "center";
+                ctx.fillText(label, x + barW/2, startY + 25);
+                
+                let boxWidth = 50;
+                let boxHeight = 22;
+                ctx.fillStyle = "rgba(0, 0, 0, 0.8)";
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.roundRect(x + barW/2 - boxWidth/2, startY - h - boxHeight - 5, boxWidth, boxHeight, 4);
+                ctx.fill();
+                ctx.stroke();
+
+                ctx.fillStyle = color;
+                ctx.font = "bold 13px 'Courier New', monospace";
+                ctx.fillText(value.toFixed(1), x + barW/2, startY - h - 10);
+            }
+
+            drawBar(startX, U, "#f59e0b", "U (Pot)");
+            drawBar(startX + barW + gap, K, "#38bdf8", "K (Cin)");
+            drawBar(startX + (barW + gap)*2, E, "#10b981", "E (Tot)");
+            
+            ctx.textAlign = "left"; 
         }
 
         function draw() {
-            // Fondo
-            ctx.fillStyle = '#05080f';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // Dibujar trayectoria orbital
-            if (orbitPath.length > 1) {
-                ctx.beginPath();
-                ctx.moveTo(orbitPath[0].x, orbitPath[0].y);
-                for(let i=1; i<orbitPath.length; i++) {
-                    ctx.lineTo(orbitPath[i].x, orbitPath[i].y);
+            ctx.strokeStyle = "#334155";
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(0, baseY);
+            ctx.lineTo(canvas.width, baseY);
+            ctx.stroke();
+
+            ctx.strokeStyle = "#94a3b8";
+            ctx.lineWidth = 5;
+            ctx.beginPath();
+            if (trackPath.length > 0) {
+                ctx.moveTo(trackPath[0].x, trackPath[0].y);
+                for(let i=1; i<trackPath.length; i++) {
+                    ctx.lineTo(trackPath[i].x, trackPath[i].y);
                 }
-                ctx.strokeStyle = 'rgba(250, 204, 21, 0.4)';
-                ctx.lineWidth = 1.5;
-                ctx.stroke();
+            }
+            ctx.stroke();
+
+            ctx.strokeStyle = "#475569";
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(420, baseY);
+            ctx.lineTo(420, baseY - R + 10);
+            ctx.stroke();
+
+            let critY = baseY - 2.5 * R;
+            ctx.strokeStyle = "rgba(239, 68, 68, 0.6)";
+            ctx.setLineDash([8, 6]);
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(0, critY);
+            ctx.lineTo(300, critY);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.fillStyle = "rgba(239, 68, 68, 0.9)";
+            ctx.font = "bold 13px sans-serif";
+            ctx.fillText("Límite Crítico (h = 2.5R)", 15, critY - 8);
+
+            ctx.fillStyle = mode === 'track' ? "var(--accent)" : "var(--danger)";
+            
+            if (hasCrashed) ctx.fillStyle = "#991b1b";
+
+            ctx.beginPath();
+            ctx.arc(cart.x, cart.y, cart.radius, 0, Math.PI * 2);
+            ctx.fill();
+            if (mode === 'fall' || hasCrashed) {
+                ctx.shadowColor = hasCrashed ? "#dc2626" : "var(--danger)";
+                ctx.shadowBlur = 20;
+                ctx.fill();
+                ctx.shadowBlur = 0;
             }
 
-            // Dibujar Tierra (Masa Central)
-            ctx.beginPath();
-            ctx.arc(center.x, center.y, R_earth, 0, Math.PI * 2);
-            let gradient = ctx.createRadialGradient(center.x, center.y, 5, center.x, center.y, R_earth);
-            gradient.addColorStop(0, '#38bdf8');
-            gradient.addColorStop(1, '#0369a1');
-            ctx.fillStyle = gradient;
-            ctx.fill();
-            
-            // Atmósfera (Glow)
-            ctx.beginPath();
-            ctx.arc(center.x, center.y, R_earth + 10, 0, Math.PI * 2);
-            ctx.fillStyle = 'rgba(56, 189, 248, 0.15)';
-            ctx.fill();
-
-            // Dibujar Satélite
-            ctx.beginPath();
-            ctx.arc(sat.x, sat.y, sat.radius, 0, Math.PI * 2);
-            ctx.fillStyle = 'var(--satellite-color)';
-            ctx.shadowBlur = 10;
-            ctx.shadowColor = 'var(--satellite-color)';
-            ctx.fill();
-            ctx.shadowBlur = 0; // Reset
+            drawEnergyBars();
         }
 
         function loop() {
-            // Aumentar la velocidad de simulación calculando varios pasos de física por cada render
-            for(let step=0; step<2; step++) {
-                updatePhysics();
-            }
+            physicsStep();
             draw();
             requestAnimationFrame(loop);
         }
 
-        // Event Listeners
-        vSlider.addEventListener('input', (e) => {
-            vDisplay.innerText = parseFloat(e.target.value).toFixed(1) + " km/s";
+        hSlider.addEventListener('input', (e) => {
+            H_ratio = parseFloat(e.target.value);
+            if(!playing) resetSim();
+            else updateUI();
         });
 
-        btnLaunch.addEventListener('click', () => {
-            initSimulation();
+        btnPlay.addEventListener('click', () => { 
+            if (!playing) {
+                if (hasCrashed) resetSim(); 
+                playing = true;
+                isPaused = false;
+            } else {
+                isPaused = !isPaused;
+            }
+            updateUI();
         });
 
-        // Iniciar
-        initSimulation();
+        btnReset.addEventListener('click', resetSim);
+
+        resetSim();
         loop();
     </script>
 </body>
